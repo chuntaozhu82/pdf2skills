@@ -1,0 +1,210 @@
+{
+  "generated_at": "2026-01-22 16:43:21",
+  "source_skus_dir": "/Users/mac/Desktop/cc_projects/test_data/Steve McConnell Code Complete A Practical Handbook of Software Construction_output/full_chunks_skus",
+  "total_skus": 103,
+  "total_skills": 24,
+  "skills": [
+    {
+      "name": "comment-layout-and-formatting",
+      "source_sku_uuids": [
+        "7647396e-2e38-43b3-8d11-03fca4c7e63b",
+        "05f84df1-589a-4a12-b169-83e0b79d23bf"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "routine-layout-and-structure",
+      "source_sku_uuids": [
+        "ea8b689e-fce4-4b8c-8b2c-c62abd9c8e3c",
+        "a226888e-56ab-418f-aa82-c3cf375ad0dd"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "class-organization-and-layout",
+      "source_sku_uuids": [
+        "80b82909-136b-40c0-9824-ceb639df83fd",
+        "0d25ab8c-c453-41f1-9ff8-4853c36fea3f",
+        "a819ecad-4f30-49c5-bfc6-34817f447db6",
+        "ff037ab8-d534-47d1-8133-be871e53493d"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "file-organization-and-structure",
+      "source_sku_uuids": [
+        "7b14f191-1396-4743-8195-3a28aeff91d2",
+        "ab1d4392-ee3a-4ac9-9419-ba7eabc3587c",
+        "6d6806f1-16c6-46ba-a638-9f3cf8c2a537"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "code-layout-evaluation-principles",
+      "source_sku_uuids": [
+        "2c8c90dc-2b66-4b93-954d-fa91465b7e7b"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "self-documenting-code-practices",
+      "source_sku_uuids": [
+        "a9d4c1e6-0432-439c-ad5b-596dd2c4f0de",
+        "47e412f2-8c3d-477f-8946-1daae8d8721a",
+        "7d90a79f-0539-489c-8cd2-29cc8dab58f6"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "self-documenting-code-checklists",
+      "source_sku_uuids": [
+        "48a94f95-702e-4c51-9255-20b933d02048",
+        "39618a77-f3cd-4cf1-aa6f-ee6133b2d709",
+        "f237968b-565a-46af-96ee-e570667df8a3",
+        "c0afa8d2-30ec-489d-addb-eda409e8196f"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "effective-commenting-strategies",
+      "source_sku_uuids": [
+        "295bf860-7bd6-49ce-9536-bc6c90385ae8",
+        "36b895ab-b36c-48c8-bac5-2696df156da5",
+        "86d6e718-61ea-4260-95b1-48a6365d114c",
+        "e6e71573-5634-4f27-aa25-b62bcd623320",
+        "0f09f98a-8edd-4396-9a21-20683f7c12f6",
+        "d4181de5-a523-4254-95bd-a108ebda225e"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "software-engineering-standards-reference",
+      "source_sku_uuids": [
+        "3010b70d-efef-4a7a-868c-8a9bbbf91fa7",
+        "3cf705a1-a10e-40f5-9f4d-8d0915cdba46",
+        "b6357d4b-e3bd-4f31-88f4-bbe4ac6dde23",
+        "ab986be5-ab40-4ea6-a34a-e12c20fcd2d1",
+        "4617ca86-687f-42ac-9db2-a36ece1884f2"
+      ],
+      "has_references": true
+    },
+    {
+      "name": "code-commenting-strategy",
+      "source_sku_uuids": [
+        "127736e0-c201-4db7-adfe-7a98e4879c93",
+        "c88a6623-7248-4e27-8fc1-87c452ba1f64",
+        "6b25b650-5194-4ed0-9ee9-d295592f5610"
+      ],
+      "has_references": true
+    },
+    {
+      "name": "code-commenting-checklists",
+      "source_sku_uuids": [
+        "2217e07a-4e39-48c9-8628-ddfb502dd54a",
+        "85c3a36b-6e77-4c64-b7ac-829907a47057",
+        "37f9964f-5232-4153-b27e-c0ef0978b922"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "software-engineering-standards",
+      "source_sku_uuids": [
+        "d5a65847-4814-4015-8bac-c0817aa45dd7",
+        "33526ede-ed5e-4fa5-bdf6-31e1e7a6a662",
+        "5b7dddec-b7b1-4cab-8e6c-e6102b575417",
+        "49b38364-ebbf-4763-b5ab-62f9103b1e07",
+        "dc01a0b0-ecd1-4cb3-99e1-03e5c1b1e3ad"
+      ],
+      "has_references": true
+    },
+    {
+      "name": "programmer-professional-development",
+      "source_sku_uuids": [
+        "149a17f7-c207-43c7-8793-01df1357b49a",
+        "a62779ab-c104-4a7c-9247-d694c54a6958",
+        "90818000-1e1f-49d7-83ca-933f781d5151",
+        "5a8acc90-b5bf-4d1c-ad3b-62244f09baed"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "intellectual-honesty-in-development",
+      "source_sku_uuids": [
+        "e2314912-b4cc-4bef-8de0-197093a1c844",
+        "09dee1d3-5cc5-4968-822d-2f0cb139d4ec",
+        "351243b6-d7ed-4ff2-ac8c-cc2c46482554"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "sourceforge-code-learning",
+      "source_sku_uuids": [
+        "c986fd3e-41e3-454e-92b3-8a682a386456"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "complex-conditional-refactoring",
+      "source_sku_uuids": [
+        "0ebdfe43-3ac3-4195-a8ea-c80d7de8e1e7"
+      ],
+      "has_references": true
+    },
+    {
+      "name": "pseudocode-programming-process",
+      "source_sku_uuids": [
+        "b597653f-e128-4dd7-97ab-de86ec07ac82"
+      ],
+      "has_references": true
+    },
+    {
+      "name": "control-structure-optimization",
+      "source_sku_uuids": [
+        "6b1357b3-61e6-4544-8399-e508f5577466"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "pseudocode-programming-process",
+      "source_sku_uuids": [
+        "aa054a82-933a-4d1a-968f-fa3ca87044dc"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "integrate-comments-into-development-workflow",
+      "source_sku_uuids": [
+        "97184e21-fded-40cd-9f0e-6d2461771187"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "routine-parameter-design",
+      "source_sku_uuids": [
+        "f98ffcef-d655-431a-9a61-a02773f66aef"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "pseudocode-programming-process",
+      "source_sku_uuids": [
+        "5b9764d2-032f-4cf4-8f20-9eeff61b702f"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "numeric-data-processing-standards",
+      "source_sku_uuids": [
+        "a23b7cbe-13e0-4e56-9875-70450c96f066"
+      ],
+      "has_references": false
+    },
+    {
+      "name": "cpp-pointer-safety-management",
+      "source_sku_uuids": [
+        "76febd4a-0ae8-46f9-ac07-766f64a73ede"
+      ],
+      "has_references": true
+    }
+  ]
+}

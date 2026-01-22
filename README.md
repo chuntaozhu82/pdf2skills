@@ -1,6 +1,6 @@
 # pdf2skills
 
-Convert PDF books into Claude Code Skills through a 6-stage hybrid NLP+LLM pipeline.
+Convert PDF books into Skills callable to Claude Code.
 
 ## Quick Start
 
