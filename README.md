@@ -13,7 +13,22 @@ pip install requests python-dotenv python-Levenshtein numpy scikit-learn spacy j
 python -m spacy download en_core_web_sm
 ```
 
-### 2. Configure Environment
+### 2. Setup MinerU Client
+
+Copy `mineru_client.py` to the parent directory of `pdf2skills/`:
+
+```
+your_project/
+├── mineru_client.py      # MinerU API client
+├── pdf2skills/           # This folder
+│   ├── run_pipeline.py
+│   └── ...
+└── test_data/            # Your PDFs here
+```
+
+Get your MinerU API key at: https://mineru.net/
+
+### 3. Configure Environment
 
 Create a `.env` file in the `pdf2skills` directory:
 
@@ -37,7 +52,7 @@ FUSION_RATE_LIMIT_SECONDS=2.0
 BUCKET_THRESHOLD=0.5
 ```
 
-### 3. Run the Pipeline
+### 4. Run the Pipeline
 
 ```bash
 # Basic usage
@@ -53,7 +68,7 @@ python run_pipeline.py your_book.pdf --language en
 python run_pipeline.py your_book.pdf --resume
 ```
 
-### 4. Output Structure
+### 5. Output Structure
 
 After processing, you'll find:
 
