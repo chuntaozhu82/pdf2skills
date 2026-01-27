@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "source": "Claude Official Skills Repository",
+    "updated_at": "2025-01-27"
+  },
+  "skills": [
+    {
+      "id": "pdf",
+      "name": "PDF Processing",
+      "description": "Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, and handling forms.",
+      "capabilities": ["read", "extract_text", "extract_tables", "merge", "split", "fill_forms", "create"],
+      "path": "pdf/SKILL.md",
+      "category": "document"
+    },
+    {
+      "id": "xlsx",
+      "name": "Excel Spreadsheet",
+      "description": "Comprehensive spreadsheet creation, editing, and analysis with support for formulas, formatting, data analysis, and visualization.",
+      "capabilities": ["read", "write", "formulas", "formatting", "data_analysis", "visualization", "recalculate"],
+      "path": "xlsx/SKILL.md",
+      "category": "document"
+    },
+    {
+      "id": "docx",
+      "name": "Word Document",
+      "description": "Create and manipulate Microsoft Word documents with support for formatting, tables, and styles.",
+      "capabilities": ["read", "write", "formatting", "tables", "styles"],
+      "path": "docx/SKILL.md",
+      "category": "document"
+    },
+    {
+      "id": "pptx",
+      "name": "PowerPoint Presentation",
+      "description": "Create and manipulate PowerPoint presentations with slides, layouts, and visual elements.",
+      "capabilities": ["read", "write", "slides", "layouts", "charts", "images"],
+      "path": "pptx/SKILL.md",
+      "category": "document"
+    },
+    {
+      "id": "canvas-design",
+      "name": "Canvas Design",
+      "description": "Create visual designs using HTML5 canvas with custom fonts and graphics.",
+      "capabilities": ["design", "graphics", "fonts", "canvas"],
+      "path": "canvas-design/SKILL.md",
+      "category": "design"
+    },
+    {
+      "id": "frontend-design",
+      "name": "Frontend Design",
+      "description": "Create frontend web designs with HTML, CSS, and JavaScript.",
+      "capabilities": ["html", "css", "javascript", "responsive"],
+      "path": "frontend-design/SKILL.md",
+      "category": "design"
+    },
+    {
+      "id": "algorithmic-art",
+      "name": "Algorithmic Art",
+      "description": "Generate algorithmic and generative art using code.",
+      "capabilities": ["generative", "patterns", "algorithms", "visualization"],
+      "path": "algorithmic-art/SKILL.md",
+      "category": "design"
+    },
+    {
+      "id": "web-artifacts-builder",
+      "name": "Web Artifacts Builder",
+      "description": "Build interactive web artifacts and components.",
+      "capabilities": ["web_components", "interactive", "artifacts"],
+      "path": "web-artifacts-builder/SKILL.md",
+      "category": "development"
+    }
+  ],
+  "categories": {
+    "document": {
+      "name": "Document Processing",
+      "description": "Skills for reading, writing, and manipulating document formats"
+    },
+    "design": {
+      "name": "Design & Graphics",
+      "description": "Skills for creating visual designs and graphics"
+    },
+    "development": {
+      "name": "Web Development",
+      "description": "Skills for building web applications and components"
+    }
+  }
+}

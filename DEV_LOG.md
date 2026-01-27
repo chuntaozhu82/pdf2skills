@@ -743,10 +743,61 @@ python run_pipeline.py book.pdf --resume
 
 ---
 
+### Session 6: 2025-01-27 - Module 7: Router Generator
+
+**Status:** COMPLETED
+
+**Accomplished:**
+1. Created `pdf2skills/router_generator.py` - generates hierarchical `router.json`
+   - Builds hierarchy from book structure (tree.json)
+   - Maps domains → topics → skills
+   - Creates dependency graph from SKU prerequisites
+   - Identifies completeness groups (LLM-assisted)
+   - Includes bucket references for semantic groupings
+
+2. Modified `pdf2skills/run_pipeline.py` - added Stage 7
+   - Pipeline now has 7 stages (was 6)
+   - Router generation runs after skill generation
+   - Supports `--resume` for skipping if router.json exists
+
+**Router JSON Schema:**
+```json
+{
+  "metadata": { "generated_at", "source_book", "total_skills", "total_domains" },
+  "hierarchy": { "domains": [{ "domain_id", "name", "skills", "topics" }] },
+  "dependency_graph": { "nodes": [{ "skill_id", "prerequisites", "enables", "co_required" }] },
+  "completeness_groups": [{ "group_id", "name", "skills", "recommended_order" }],
+  "bucket_references": { "bucket_id": { "shared_objects", "skills" } }
+}
+```
+
+**Usage:**
+```bash
+# Standalone
+python -m router_generator ./book_output
+
+# Via pipeline
+python run_pipeline.py book.pdf  # Router generated as Stage 7
+```
+
+**Design Decisions:**
+- Post-hoc generation: Router reads all intermediate outputs, no changes to earlier stages
+- Book structure as primary: Uses tree.json hierarchy (our "secret weapon")
+- Minimal LLM usage: Only 1 call for completeness groups, rest is pure data transformation
+
+**Known Issues / TODO:**
+- [ ] **Context Length Risk:** Post-hoc generation feeds all data at once to GLM-4.7. For large books, this may exceed context limits or degrade quality. Need to:
+  1. Test router quality on books of varying sizes
+  2. If quality degrades, refactor to recursive/iterative approach: update router incrementally during each pdf2skills stage instead of generating from scratch at the end
+  3. Monitor token counts and add warning if approaching limits
+
+---
+
 ## Version History
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.1 | 2025-01-27 | Added Stage 7 - Router Generator |
 | 1.0 | 2025-01-22 | Initial release - Full pipeline with SiliconFlow |
 
 ---

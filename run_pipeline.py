@@ -11,6 +11,8 @@ Pipeline stages:
 4. Chunks → SKUs (SKU Extractor)
 5. SKUs → Fused SKUs (Knowledge Fusion)
 6. Fused SKUs → Claude Skills (Skill Generator)
+7. All Outputs → Router (Router Generator)
+8. SKUs → Glossary (Glossary Extractor)
 
 Usage:
     python run_pipeline.py <pdf_path> [--output-dir <dir>] [--language <ch|en>]
@@ -56,6 +58,8 @@ def check_stage_complete(output_dir: Path, stage: str) -> bool:
         "skus": output_dir / "full_chunks_skus" / "skus_index.json",
         "fusion": output_dir / "full_chunks_skus" / "buckets.json",
         "skills": output_dir / "full_chunks_skus" / "generated_skills" / "index.md",
+        "router": output_dir / "full_chunks_skus" / "router.json",
+        "glossary": output_dir / "full_chunks_skus" / "glossary.json",
     }
     return markers.get(stage, Path("")).exists()
 
@@ -168,6 +172,24 @@ def run_skill_generation(skus_dir: Path, output_dir: Path = None) -> Path:
     return output_dir
 
 
+def run_router_generation(output_dir: Path) -> Path:
+    """Stage 7: Generate hierarchical router from all outputs."""
+    from router_generator import RouterGenerator
+
+    generator = RouterGenerator(str(output_dir))
+    generator.generate()
+    return generator.save_results()
+
+
+def run_glossary_extraction(output_dir: Path, use_llm: bool = False) -> Path:
+    """Stage 8: Extract domain glossary from SKUs."""
+    from glossary_extractor import GlossaryExtractor
+
+    extractor = GlossaryExtractor(str(output_dir), use_llm=use_llm)
+    extractor.extract()
+    return extractor.save_results()
+
+
 def run_pipeline(
     pdf_path: Path,
     output_dir: Path = None,
@@ -198,7 +220,7 @@ def run_pipeline(
     print(f"Resume Mode: {resume}")
     print(f"Started:     {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    total_steps = 6
+    total_steps = 8
     results = {}
 
     # =========================================================================
@@ -295,6 +317,34 @@ def run_pipeline(
         results["skills"] = "complete"
 
     # =========================================================================
+    # Stage 7: Skills → Router (Router Generator)
+    # =========================================================================
+    print_step(7, total_steps, "Router Generation")
+
+    router_file = skus_dir / "router.json"
+
+    if resume and check_stage_complete(output_dir, "router"):
+        print("  [SKIP] Already completed - router.json exists")
+        results["router"] = "skipped"
+    else:
+        run_router_generation(output_dir)
+        results["router"] = "complete"
+
+    # =========================================================================
+    # Stage 8: SKUs → Glossary (Glossary Extractor)
+    # =========================================================================
+    print_step(8, total_steps, "Glossary Extraction")
+
+    glossary_file = skus_dir / "glossary.json"
+
+    if resume and check_stage_complete(output_dir, "glossary"):
+        print("  [SKIP] Already completed - glossary.json exists")
+        results["glossary"] = "skipped"
+    else:
+        run_glossary_extraction(output_dir, use_llm=False)
+        results["glossary"] = "complete"
+
+    # =========================================================================
     # Summary
     # =========================================================================
     end_time = datetime.now()
@@ -319,12 +369,16 @@ def run_pipeline(
     print(f"    └── full_chunks_skus/              (Knowledge units)")
     print(f"        ├── skus/                      (Individual SKUs)")
     print(f"        ├── buckets.json               (Grouped SKUs)")
+    print(f"        ├── router.json                (Hierarchical router)")
+    print(f"        ├── glossary.json              (Domain terminology)")
     print(f"        └── generated_skills/          (Claude Skills)")
     print(f"            ├── index.md               (Skill index)")
     print(f"            └── <skill-name>/SKILL.md  (Individual skills)")
 
-    print(f"\nGenerated skills are ready at:")
-    print(f"  {skills_dir}")
+    print(f"\nGenerated outputs ready at:")
+    print(f"  Skills:   {skills_dir}")
+    print(f"  Router:   {skus_dir / 'router.json'}")
+    print(f"  Glossary: {skus_dir / 'glossary.json'}")
 
     return output_dir
 
