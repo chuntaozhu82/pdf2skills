@@ -1,6 +1,18 @@
-# pdf2skills
+# Any2Skill
 
-Convert PDF books into Skills callable in **Trae IDE** (also supports Claude Code format).
+Convert **any** input source into Skills callable in **Trae IDE** (also supports Claude Code format).
+
+> PDF → Skills | TXT → Skills | Markdown → Skills | Web → Skills
+
+## Supported Input Formats
+
+| Format | Extension | Description |
+|--------|-----------|-------------|
+| **PDF** | `.pdf` | PDF documents (via MinerU API) |
+| **Text** | `.txt` | Plain text files |
+| **Markdown** | `.md` | Markdown files |
+| **Web URL** | `https://...` | Single web page |
+| **URL List** | `.txt` | Text file with multiple URLs (one per line) |
 
 ## Quick Start
 
@@ -13,31 +25,31 @@ pip install requests python-dotenv python-Levenshtein numpy scikit-learn spacy j
 python -m spacy download en_core_web_sm
 ```
 
-### 2. Setup MinerU Client
+### 2. Setup MinerU Client (for PDF input only)
 
-Copy `mineru_client.py` to the parent directory of `pdf2skills/`:
+Copy `mineru_client.py` to the parent directory:
 
 ```
 your_project/
-├── mineru_client.py      # MinerU API client
-├── pdf2skills/           # This folder
+├── mineru_client.py      # MinerU API client (for PDF)
+├── Any2Skill/            # This folder
 │   ├── run_pipeline.py
 │   └── ...
-└── test_data/            # Your PDFs here
+└── test_data/            # Your files here
 ```
 
 Get your MinerU API key at: https://mineru.net/
 
 ### 3. Configure Environment
 
-Create a `.env` file in the `pdf2skills` directory:
+Create a `.env` file in the project directory:
 
 ```bash
 # SiliconFlow API (Required - primary LLM provider)
 SILICONFLOW_API_KEY=your_siliconflow_api_key
 SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
 
-# MinerU API (Required - PDF to Markdown conversion)
+# MinerU API (Required for PDF input)
 MINERU_API_KEY=your_mineru_api_key
 MINERU_BASE_URL=https://mineru.net/api/v4/extract/task
 
@@ -55,20 +67,32 @@ BUCKET_THRESHOLD=0.5
 ### 4. Run the Pipeline
 
 ```bash
-# Basic usage (generates Trae IDE skills by default)
-python run_pipeline.py your_book.pdf
+# Process a PDF file
+python run_pipeline.py book.pdf
+
+# Process a text file
+python run_pipeline.py notes.txt
+
+# Process a markdown file
+python run_pipeline.py document.md
+
+# Scrape a web page
+python run_pipeline.py https://example.com/article
+
+# Scrape multiple URLs from a file
+python run_pipeline.py urls.txt
 
 # With custom output directory
-python run_pipeline.py your_book.pdf --output-dir ./output
+python run_pipeline.py book.pdf --output-dir ./output
 
 # For English PDFs
-python run_pipeline.py your_book.pdf --language en
+python run_pipeline.py book.pdf --language en
 
 # Resume interrupted processing
-python run_pipeline.py your_book.pdf --resume
+python run_pipeline.py book.pdf --resume
 
 # Generate Claude Code format instead of Trae IDE
-python run_pipeline.py your_book.pdf --claude-format
+python run_pipeline.py book.pdf --claude-format
 ```
 
 ### 5. Output Structure
@@ -76,7 +100,7 @@ python run_pipeline.py your_book.pdf --claude-format
 After processing (Trae IDE format - default):
 
 ```
-your_book_output/
+<name>_output/
 ├── full.md                          # Extracted markdown
 ├── full_chunks/                     # Chunked documents
 │   ├── chunks_index.json
@@ -107,7 +131,7 @@ After the pipeline completes:
 
 | Stage | Module | Description |
 |-------|--------|-------------|
-| 1 | MinerU API | PDF → Markdown with OCR |
+| 1 | Input Processor | PDF/TXT/MD/URL → Markdown |
 | 2 | Onion Peeler | Recursive semantic chunking |
 | 3 | Semantic Density | NLP scoring + LLM calibration |
 | 4 | SKU Extractor | Knowledge unit extraction |
@@ -115,6 +139,71 @@ After the pipeline completes:
 | 6 | Skill Generator | SKU → Trae Skill conversion |
 | 7 | Router Generator | Hierarchical skill router |
 | 8 | Glossary Extractor | Domain terminology extraction |
+
+## Input Format Details
+
+### PDF Files
+- Uses MinerU API for OCR and layout extraction
+- Supports Chinese (`--language ch`) and English (`--language en`)
+- Best for scanned documents and complex layouts
+
+### Text Files (.txt)
+- Auto-detects encoding (UTF-8, GBK, Big5, etc.)
+- Converts to structured markdown
+- Recognizes chapter headings and sections
+
+### Markdown Files (.md)
+- Pass-through with minimal processing
+- Preserves existing structure
+- Ideal for pre-formatted content
+
+### Web URLs
+- Scrapes single page or multiple pages
+- Extracts main content (article body)
+- Converts HTML to clean markdown
+- Rate-limited to respect servers
+
+### URL List Files
+- Text file with one URL per line
+- Combines all pages into one document
+- Great for documentation sites
+
+Example `urls.txt`:
+```
+https://docs.python.org/3/tutorial/introduction.html
+https://docs.python.org/3/tutorial/controlflow.html
+https://docs.python.org/3/tutorial/datastructures.html
+```
+
+## Using Individual Modules
+
+Each module can be run independently:
+
+```bash
+# Text processing only
+python -m text_processor notes.txt
+
+# Web scraping only
+python -m web_scraper https://example.com/article
+
+# Chunking only
+python -m onion_peeler path/to/full.md
+
+# Density analysis only
+python -m semantic_density path/to/chunks_dir
+
+# SKU extraction only
+python -m sku_extractor path/to/chunks_dir -d density_scores.json
+
+# Knowledge fusion only
+python -m knowledge_fusion path/to/skus_dir
+
+# Skill generation only (Trae format)
+python -m skill_generator path/to/skus_dir
+
+# Skill generation only (Claude format)
+python -m skill_generator path/to/skus_dir --claude-format
+```
 
 ## Skill Format
 
@@ -137,30 +226,6 @@ description: "Does X. Invoke when Y happens or user asks for Z."
 - `description` must include **WHAT** the skill does AND **WHEN** to invoke it
 - Keep description under 200 characters for best display
 - SKILL.md should be under 500 lines
-
-## Using Individual Modules
-
-Each module can be run independently:
-
-```bash
-# Chunking only
-python -m onion_peeler path/to/full.md
-
-# Density analysis only
-python -m semantic_density path/to/chunks_dir
-
-# SKU extraction only
-python -m sku_extractor path/to/chunks_dir -d density_scores.json
-
-# Knowledge fusion only
-python -m knowledge_fusion path/to/skus_dir
-
-# Skill generation only (Trae format)
-python -m skill_generator path/to/skus_dir
-
-# Skill generation only (Claude format)
-python -m skill_generator path/to/skus_dir --claude-format
-```
 
 ## API Providers
 
@@ -203,10 +268,15 @@ python -m spacy download en_core_web_sm
 - Restart Trae IDE after generating new skills
 - Check that each skill has proper frontmatter with `name` and `description`
 
+**Web scraping fails**
+- Check your internet connection
+- Some sites may block scraping (try a different site)
+- Increase rate limit with `--rate-limit` option
+
 ## License
 
 MIT License
 
 ## Version
 
-2.0 - Added Trae IDE format support
+2.1 - Added multi-format input support (TXT, MD, Web URLs)

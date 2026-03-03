@@ -1,22 +1,46 @@
 #!/usr/bin/env python3
 """
-pdf2skills - Full Pipeline Runner
+Any2Skill - Full Pipeline Runner
 
-End-to-end pipeline for converting PDF books to Claude Code Skills.
+End-to-end pipeline for converting various input sources to Trae IDE Skills.
+
+Supported input formats:
+- PDF files (.pdf)
+- Text files (.txt)
+- Markdown files (.md)
+- Web URLs (http:// or https://)
+- URL list files (.txt with URLs)
 
 Pipeline stages:
-1. PDF → Markdown (MinerU API)
+1. Input → Markdown (MinerU API / Text Processor / Web Scraper)
 2. Markdown → Chunks (Onion Peeler)
 3. Chunks → Density Scores (Semantic Density Analyzer)
 4. Chunks → SKUs (SKU Extractor)
 5. SKUs → Fused SKUs (Knowledge Fusion)
-6. Fused SKUs → Claude Skills (Skill Generator)
+6. Fused SKUs → Trae Skills (Skill Generator)
 7. All Outputs → Router (Router Generator)
 8. SKUs → Glossary (Glossary Extractor)
 
 Usage:
-    python run_pipeline.py <pdf_path> [--output-dir <dir>] [--language <ch|en>]
-    python run_pipeline.py --resume <output_dir>  # Resume from existing progress
+    python run_pipeline.py <input> [--output-dir <dir>] [options]
+    
+    # PDF file
+    python run_pipeline.py book.pdf
+    
+    # Text file
+    python run_pipeline.py notes.txt
+    
+    # Markdown file
+    python run_pipeline.py document.md
+    
+    # Web URL
+    python run_pipeline.py https://example.com/article
+    
+    # URL list file
+    python run_pipeline.py urls.txt
+    
+    # Resume from previous run
+    python run_pipeline.py --resume ./book_output
 """
 
 import os
@@ -24,13 +48,12 @@ import sys
 import argparse
 from pathlib import Path
 from datetime import datetime
+from typing import Tuple, Optional
 
-# Add parent directory to path for mineru_client
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
 
-# Load environment variables
 env_path = Path(__file__).parent / ".env"
 load_dotenv(env_path)
 
@@ -49,13 +72,82 @@ def print_step(step_num: int, total: int, title: str):
     print("-" * 50)
 
 
+def detect_input_type(input_path: str) -> Tuple[str, str]:
+    """
+    Detect the type of input.
+    
+    Returns:
+        Tuple of (input_type, description)
+        input_type: 'pdf', 'txt', 'md', 'url', 'url_list', 'unknown'
+    """
+    if input_path.startswith('http://') or input_path.startswith('https://'):
+        return 'url', 'Web URL'
+    
+    path = Path(input_path)
+    
+    if not path.exists():
+        return 'unknown', 'File not found'
+    
+    suffix = path.suffix.lower()
+    
+    if suffix == '.pdf':
+        return 'pdf', 'PDF file'
+    elif suffix == '.md':
+        return 'md', 'Markdown file'
+    elif suffix == '.txt':
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            first_lines = [f.readline() for _ in range(10)]
+        
+        url_count = sum(1 for line in first_lines if line.strip().startswith('http'))
+        if url_count >= 2:
+            return 'url_list', 'URL list file'
+        
+        return 'txt', 'Text file'
+    
+    return 'unknown', f'Unsupported format: {suffix}'
+
+
+def run_input_to_markdown(input_path: str, output_dir: Path, input_type: str, language: str = "ch") -> Path:
+    """Stage 1: Convert input to Markdown based on type."""
+    markdown_path = output_dir / "full.md"
+    
+    if input_type == 'pdf':
+        from mineru_client import MineruClient
+        client = MineruClient(language=language)
+        return client.convert_pdf(Path(input_path), output_dir)
+    
+    elif input_type in ('txt', 'md'):
+        from text_processor import TextProcessor
+        processor = TextProcessor(input_path, str(output_dir))
+        return processor.process()
+    
+    elif input_type == 'url':
+        from web_scraper import WebScraper
+        scraper = WebScraper(str(output_dir))
+        result = scraper.scrape_url(input_path)
+        if result is None:
+            raise RuntimeError(f"Failed to scrape URL: {input_path}")
+        return result
+    
+    elif input_type == 'url_list':
+        from web_scraper import WebScraper
+        scraper = WebScraper(str(output_dir))
+        result = scraper.scrape_url_list_file(input_path, combine=True)
+        if result is None:
+            raise RuntimeError(f"Failed to scrape URLs from: {input_path}")
+        return result
+    
+    else:
+        raise ValueError(f"Unsupported input type: {input_type}")
+
+
 def check_stage_complete(output_dir: Path, stage: str, trae_format: bool = True) -> bool:
     """Check if a pipeline stage has already completed."""
     if trae_format and stage == "skills":
         marker = output_dir.parent / ".trae" / "skills" / "generation_metadata.json"
     else:
         markers = {
-            "mineru": output_dir / "full.md",
+            "input": output_dir / "full.md",
             "chunks": output_dir / "full_chunks" / "chunks_index.json",
             "density": output_dir / "full_chunks_density" / "density_scores.json",
             "skus": output_dir / "full_chunks_skus" / "skus_index.json",
@@ -66,14 +158,6 @@ def check_stage_complete(output_dir: Path, stage: str, trae_format: bool = True)
         }
         marker = markers.get(stage, Path(""))
     return marker.exists()
-
-
-def run_mineru(pdf_path: Path, output_dir: Path, language: str = "ch") -> Path:
-    """Stage 1: Convert PDF to Markdown using MinerU API."""
-    from mineru_client import MineruClient
-
-    client = MineruClient(language=language)
-    return client.convert_pdf(pdf_path, output_dir)
 
 
 def run_chunking(markdown_path: Path, output_dir: Path) -> Path:
@@ -119,25 +203,21 @@ def run_knowledge_fusion(skus_dir: Path) -> dict:
 
     results = {}
 
-    # 5.1 Tag Normalization
     print("\n  5.1 Tag Normalization...")
     normalizer = TagNormalizer(str(skus_dir))
     normalizer.normalize()
     results["normalization"] = "complete"
 
-    # 5.2 SKU Bucketing
     print("\n  5.2 SKU Bucketing...")
     bucketer = SKUBucketer(str(skus_dir))
     bucketer.bucket()
     results["bucketing"] = "complete"
 
-    # 5.3 Similarity Calculation
     print("\n  5.3 Similarity Calculation...")
     calculator = SimilarityCalculator(str(skus_dir))
     calculator.calculate()
     results["similarity"] = "complete"
 
-    # 5.4 State Matrix (optional - only if duplicates/conflicts found)
     similarities_file = skus_dir / "similarities.json"
     if similarities_file.exists():
         import json
@@ -197,32 +277,61 @@ def run_glossary_extraction(output_dir: Path, use_llm: bool = False) -> Path:
     return extractor.save_results()
 
 
+def get_output_name(input_path: str, input_type: str) -> str:
+    """Generate output directory name from input."""
+    if input_type in ('url', 'url_list'):
+        if input_type == 'url':
+            from urllib.parse import urlparse
+            parsed = urlparse(input_path)
+            name = parsed.netloc.replace('.', '_')
+            if parsed.path and parsed.path != '/':
+                path_name = parsed.path.strip('/').replace('/', '_')
+                name = f"{name}_{path_name[:30]}"
+            return name[:50]
+        else:
+            return Path(input_path).stem
+    else:
+        return Path(input_path).stem
+
+
 def run_pipeline(
-    pdf_path: Path,
+    input_path: str,
     output_dir: Path = None,
+    input_type: str = None,
     language: str = "ch",
     resume: bool = False,
     trae_format: bool = True
 ):
     """
-    Run the full pdf2skills pipeline.
+    Run the full Any2Skill pipeline.
 
     Args:
-        pdf_path: Path to input PDF file
-        output_dir: Output directory (default: <pdf_name>_output)
+        input_path: Path to input file or URL
+        output_dir: Output directory (default: <input_name>_output)
+        input_type: Override input type detection
         language: PDF language for OCR ("ch" or "en")
         resume: Whether to resume from existing progress
-        trae_format: If True, generate Trae IDE compatible skills (.trae/skills/)
+        trae_format: If True, generate Trae IDE compatible skills
     """
     start_time = datetime.now()
 
-    pdf_path = Path(pdf_path).resolve()
+    if input_type is None:
+        input_type, input_desc = detect_input_type(input_path)
+    else:
+        input_desc = input_type
+
+    if input_type == 'unknown':
+        print(f"Error: {input_desc}")
+        sys.exit(1)
+
+    output_name = get_output_name(input_path, input_type)
     if output_dir is None:
-        output_dir = pdf_path.parent / f"{pdf_path.stem}_output"
+        output_dir = Path(input_path).parent / f"{output_name}_output" if input_type not in ('url', 'url_list') else Path(f"./{output_name}_output")
     output_dir = Path(output_dir).resolve()
 
-    print_header("pdf2skills - Full Pipeline")
-    print(f"Input PDF:   {pdf_path}")
+    print_header("Any2Skill - Full Pipeline")
+    print(f"Input:       {input_path}")
+    print(f"Input Type:  {input_desc}")
     print(f"Output Dir:  {output_dir}")
     print(f"Language:    {language}")
     print(f"Resume Mode: {resume}")
@@ -233,16 +342,16 @@ def run_pipeline(
     results = {}
 
     # =========================================================================
-    # Stage 1: PDF → Markdown (MinerU)
+    # Stage 1: Input → Markdown
     # =========================================================================
-    print_step(1, total_steps, "PDF to Markdown (MinerU API)")
+    print_step(1, total_steps, f"Input to Markdown ({input_desc})")
 
-    if resume and check_stage_complete(output_dir, "mineru"):
+    if resume and check_stage_complete(output_dir, "input"):
         print("  [SKIP] Already completed - full.md exists")
-        results["mineru"] = "skipped"
+        results["input"] = "skipped"
     else:
-        run_mineru(pdf_path, output_dir, language)
-        results["mineru"] = "complete"
+        run_input_to_markdown(input_path, output_dir, input_type, language)
+        results["input"] = "complete"
 
     markdown_path = output_dir / "full.md"
     if not markdown_path.exists():
@@ -416,22 +525,34 @@ def run_pipeline(
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="pdf2skills - Convert PDF books to Trae IDE Skills",
+        description="Any2Skill - Convert any input to Trae IDE Skills",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Process a new PDF (default: Trae IDE format)
+  # Process a PDF file
   python run_pipeline.py book.pdf
-
+  
+  # Process a text file
+  python run_pipeline.py notes.txt
+  
+  # Process a markdown file
+  python run_pipeline.py document.md
+  
+  # Scrape a web page
+  python run_pipeline.py https://example.com/article
+  
+  # Scrape multiple URLs from a file
+  python run_pipeline.py urls.txt
+  
   # Process with custom output directory
   python run_pipeline.py book.pdf --output-dir ./my_output
-
+  
   # Process English PDF
   python run_pipeline.py book.pdf --language en
-
+  
   # Resume from previous run
   python run_pipeline.py book.pdf --resume
-
+  
   # Resume using output directory only
   python run_pipeline.py --resume ./book_output
   
@@ -442,11 +563,12 @@ Examples:
 
     parser.add_argument(
         "input",
-        help="Path to PDF file, or output directory when using --resume"
+        nargs='?',
+        help="Input: PDF file, TXT file, MD file, URL, or URL list file"
     )
     parser.add_argument(
         "-o", "--output-dir",
-        help="Output directory (default: <pdf_name>_output)"
+        help="Output directory (default: <input_name>_output)"
     )
     parser.add_argument(
         "-l", "--language",
@@ -464,33 +586,58 @@ Examples:
         action="store_true",
         help="Generate Claude Code format skills instead of Trae IDE format"
     )
+    parser.add_argument(
+        "--type",
+        choices=["pdf", "txt", "md", "url", "url_list"],
+        help="Override input type detection"
+    )
 
     args = parser.parse_args()
 
-    input_path = Path(args.input)
+    if not args.input and not args.resume:
+        parser.print_help()
+        print("\nError: Input is required (unless using --resume with a directory)")
+        sys.exit(1)
 
-    # Handle resume mode with directory only
-    if args.resume and input_path.is_dir():
-        # Input is an output directory, find the original PDF
-        output_dir = input_path
-        pdf_candidates = list(output_dir.parent.glob(f"{output_dir.stem.replace('_output', '')}*.pdf"))
-        if pdf_candidates:
-            pdf_path = pdf_candidates[0]
+    input_path = args.input
+
+    if args.resume and input_path:
+        resume_path = Path(input_path)
+        if resume_path.is_dir():
+            output_dir = resume_path
+            parent_files = list(output_dir.parent.glob(f"{output_dir.stem.replace('_output', '')}.*"))
+            pdf_files = [f for f in parent_files if f.suffix.lower() == '.pdf']
+            if pdf_files:
+                input_path = str(pdf_files[0])
+            else:
+                txt_files = [f for f in parent_files if f.suffix.lower() in ('.txt', '.md')]
+                if txt_files:
+                    input_path = str(txt_files[0])
+                else:
+                    input_path = output_dir.stem.replace('_output', '')
         else:
-            # Create a dummy path since we're resuming
-            pdf_path = output_dir.parent / f"{output_dir.stem.replace('_output', '')}.pdf"
+            output_dir = Path(args.output_dir) if args.output_dir else None
     else:
-        pdf_path = input_path
         output_dir = Path(args.output_dir) if args.output_dir else None
 
-    if not args.resume and not pdf_path.exists():
-        print(f"Error: PDF file not found: {pdf_path}")
-        sys.exit(1)
+    if not args.resume:
+        input_type, input_desc = detect_input_type(input_path)
+        if input_type == 'unknown':
+            print(f"Error: {input_desc}")
+            sys.exit(1)
+        
+        if input_type == 'pdf':
+            if not Path(input_path).exists():
+                print(f"Error: File not found: {input_path}")
+                sys.exit(1)
+    else:
+        input_type = args.type
 
     try:
         run_pipeline(
-            pdf_path=pdf_path,
+            input_path=input_path,
             output_dir=output_dir,
+            input_type=input_type,
             language=args.language,
             resume=args.resume,
             trae_format=not args.claude_format
