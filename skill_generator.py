@@ -117,17 +117,21 @@ class GLM4Client:
 # Prompts
 # ============================================================================
 
-SKILL_GENERATION_PROMPT = '''You are converting Standardized Knowledge Units (SKUs) into Claude Code Skills.
+SKILL_GENERATION_PROMPT = '''You are converting Standardized Knowledge Units (SKUs) into Trae IDE Skills.
 
 ## Background
-SKUs are structured knowledge units extracted from a professional book. Your task is to convert them into Skills that Claude Code can use to help users with domain-specific tasks.
+SKUs are structured knowledge units extracted from a professional book. Your task is to convert them into Skills that Trae IDE can use to help users with domain-specific tasks.
 
-## Skill Format Requirements (from Anthropic's official guide)
+## Skill Format Requirements (Trae IDE Format)
 1. Each skill has a SKILL.md with YAML frontmatter (name, description) and markdown body
 2. SKILL.md should be < 500 lines, focusing on core workflows and procedures
 3. Detailed reference material goes in references/ folder
 4. Skill names use kebab-case (e.g., "financial-ratio-analysis")
-5. Description must clearly state WHAT the skill does and WHEN to use it
+5. **CRITICAL - description format**: Must include:
+   - (1) WHAT the skill does (functionality)
+   - (2) WHEN to invoke it (trigger conditions/scenarios)
+   - Keep under 200 characters for best display
+   - Example: "Analyzes financial ratios for company health. Invoke when user asks about financial analysis, ratio calculation, or company performance evaluation."
 
 ## Your Task
 Given these {sku_count} SKUs from the same domain bucket, create skills following these rules:
@@ -170,24 +174,27 @@ Return a JSON array where each element represents one skill:
 2. Use imperative form ("Analyze the data" not "Analyzing the data")
 3. Keep SKILL.md focused on WHEN to use and HOW to execute
 4. Put detailed examples, formulas, and edge cases in references/
-5. The description field is CRITICAL - it determines when Claude triggers this skill
-6. Include specific trigger phrases/contexts in the description
+5. **The description field is CRITICAL** - it determines when Trae triggers this skill
+6. **MUST include trigger phrases/contexts in the description** using format:
+   "Does X. Invoke when Y happens or user asks for Z."
+7. **Keep description under 200 characters**
 
 ## Quality Checklist
 - [ ] Each skill has clear, actionable procedures
-- [ ] Description covers both WHAT and WHEN
+- [ ] Description covers both WHAT and WHEN (under 200 chars)
+- [ ] Description uses format: "Does X. Invoke when Y."
 - [ ] Core logic is in SKILL.md, details in references/
-- [ ] No generic filler content - only add what Claude needs
+- [ ] No generic filler content - only add what Trae needs
 - [ ] Skill names are descriptive and follow kebab-case
 
 Now convert the SKUs into skills. Output ONLY the JSON array, no explanation.'''
 
 
-INDEX_GENERATION_PROMPT = '''You are creating a top-level index file for a collection of Claude Code Skills.
+INDEX_GENERATION_PROMPT = '''You are creating a top-level index file for a collection of Trae IDE Skills.
 
 ## Background
 These skills were generated from a professional book: "{book_title}"
-The skills help Claude assist users with domain-specific tasks from this book.
+The skills help Trae IDE assist users with domain-specific tasks from this book.
 
 ## Skills Summary
 {skills_summary}
@@ -229,11 +236,11 @@ Return ONLY the markdown content for index.md. Structure it as:
 Write in {output_language}. Output ONLY the markdown content.'''
 
 
-INDEX_UPDATE_PROMPT = '''You are updating an existing index.md file for a collection of Claude Code Skills.
+INDEX_UPDATE_PROMPT = '''You are updating an existing index.md file for a collection of Trae IDE Skills.
 
 ## Background
 These skills were generated from a professional book: "{book_title}"
-The index.md serves as a router - helping users/Claude navigate to the right skill.
+The index.md serves as a router - helping users/Trae navigate to the right skill.
 
 ## Existing index.md
 ```markdown
@@ -281,18 +288,22 @@ class GeneratedSkill:
 # ============================================================================
 
 class SkillGenerator:
-    """Converts SKUs to Claude Code Skills via GLM-4.7."""
+    """Converts SKUs to Trae IDE Skills via GLM-4.7."""
 
-    def __init__(self, skus_dir: str, output_dir: str = None):
+    def __init__(self, skus_dir: str, output_dir: str = None, trae_format: bool = True):
         self.skus_dir = Path(skus_dir)
-        self.output_dir = Path(output_dir) if output_dir else self.skus_dir.parent / "generated_skills"
+        self.trae_format = trae_format
+        
+        if self.trae_format:
+            self.output_dir = Path(output_dir) if output_dir else self.skus_dir.parent.parent / ".trae" / "skills"
+        else:
+            self.output_dir = Path(output_dir) if output_dir else self.skus_dir.parent / "generated_skills"
+        
         self.client = GLM4Client()
 
-        # Load data
         self.skus = self._load_skus()
         self.buckets = self._load_buckets()
 
-        # Results
         self.generated_skills: List[GeneratedSkill] = []
 
     def _load_skus(self) -> Dict[str, dict]:
@@ -541,21 +552,17 @@ class SkillGenerator:
         """Package generated skills into folder structure."""
         print(f"\n[SkillGenerator] Packaging skills to: {self.output_dir}")
 
-        # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Write each skill
         for skill in self.generated_skills:
             skill_dir = self.output_dir / skill.skill_name
             skill_dir.mkdir(exist_ok=True)
 
-            # Write SKILL.md
             skill_md_path = skill_dir / "SKILL.md"
             with open(skill_md_path, 'w', encoding='utf-8') as f:
                 f.write(skill.skill_md)
             print(f"  Created: {skill.skill_name}/SKILL.md")
 
-            # Write references if any
             if skill.references:
                 refs_dir = skill_dir / "references"
                 refs_dir.mkdir(exist_ok=True)
@@ -565,19 +572,19 @@ class SkillGenerator:
                         f.write(content)
                     print(f"  Created: {skill.skill_name}/references/{filename}")
 
-        # Generate and write index.md
-        index_content = self.generate_index()
-        index_path = self.output_dir / "index.md"
-        with open(index_path, 'w', encoding='utf-8') as f:
-            f.write(index_content)
-        print(f"  Created: index.md")
+        if not self.trae_format:
+            index_content = self.generate_index()
+            index_path = self.output_dir / "index.md"
+            with open(index_path, 'w', encoding='utf-8') as f:
+                f.write(index_content)
+            print(f"  Created: index.md")
 
-        # Write generation metadata
         metadata = {
             "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "source_skus_dir": str(self.skus_dir),
             "total_skus": len(self.skus),
             "total_skills": len(self.generated_skills),
+            "format": "trae" if self.trae_format else "claude",
             "skills": [
                 {
                     "name": s.skill_name,
@@ -593,7 +600,13 @@ class SkillGenerator:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
         print(f"  Created: generation_metadata.json")
 
-        print(f"\n[SkillGenerator] Packaging complete!")
+        if self.trae_format:
+            print(f"\n[SkillGenerator] Trae Skills packaging complete!")
+            print(f"  Skills are ready in .trae/skills/")
+            print(f"  Restart Trae IDE to load new skills")
+        else:
+            print(f"\n[SkillGenerator] Packaging complete!")
+        
         print(f"  Total skills: {len(self.generated_skills)}")
         print(f"  Output: {self.output_dir}")
 
@@ -602,9 +615,15 @@ class SkillGenerator:
 # Pipeline Functions
 # ============================================================================
 
-def run_skill_generation(skus_dir: str, output_dir: str = None):
-    """Run the complete skill generation pipeline."""
-    generator = SkillGenerator(skus_dir, output_dir)
+def run_skill_generation(skus_dir: str, output_dir: str = None, trae_format: bool = True):
+    """Run the complete skill generation pipeline.
+    
+    Args:
+        skus_dir: Path to SKUs directory
+        output_dir: Optional output directory
+        trae_format: If True, output in Trae IDE format (.trae/skills/)
+    """
+    generator = SkillGenerator(skus_dir, output_dir, trae_format=trae_format)
     generator.generate_all()
     generator.package_skills()
     return generator
@@ -706,7 +725,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Module 5: Convert SKUs to Claude Code Skills"
+        description="Module 5: Convert SKUs to Trae IDE Skills"
     )
     parser.add_argument(
         "skus_dir",
@@ -714,7 +733,12 @@ def main():
     )
     parser.add_argument(
         "-o", "--output",
-        help="Output directory for generated skills (default: ../generated_skills)"
+        help="Output directory for generated skills (default: .trae/skills/ for Trae format)"
+    )
+    parser.add_argument(
+        "--claude-format",
+        action="store_true",
+        help="Generate Claude Code format instead of Trae IDE format"
     )
     parser.add_argument(
         "--update-index",
@@ -725,10 +749,9 @@ def main():
     args = parser.parse_args()
 
     if args.update_index:
-        # In update-index mode, skus_dir is actually the skills directory
         update_index_only(args.skus_dir)
     else:
-        run_skill_generation(args.skus_dir, args.output)
+        run_skill_generation(args.skus_dir, args.output, trae_format=not args.claude_format)
 
 
 if __name__ == "__main__":
