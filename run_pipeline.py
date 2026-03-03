@@ -49,19 +49,23 @@ def print_step(step_num: int, total: int, title: str):
     print("-" * 50)
 
 
-def check_stage_complete(output_dir: Path, stage: str) -> bool:
+def check_stage_complete(output_dir: Path, stage: str, trae_format: bool = True) -> bool:
     """Check if a pipeline stage has already completed."""
-    markers = {
-        "mineru": output_dir / "full.md",
-        "chunks": output_dir / "full_chunks" / "chunks_index.json",
-        "density": output_dir / "full_chunks_density" / "density_scores.json",
-        "skus": output_dir / "full_chunks_skus" / "skus_index.json",
-        "fusion": output_dir / "full_chunks_skus" / "buckets.json",
-        "skills": output_dir / "full_chunks_skus" / "generated_skills" / "index.md",
-        "router": output_dir / "full_chunks_skus" / "router.json",
-        "glossary": output_dir / "full_chunks_skus" / "glossary.json",
-    }
-    return markers.get(stage, Path("")).exists()
+    if trae_format and stage == "skills":
+        marker = output_dir.parent / ".trae" / "skills" / "generation_metadata.json"
+    else:
+        markers = {
+            "mineru": output_dir / "full.md",
+            "chunks": output_dir / "full_chunks" / "chunks_index.json",
+            "density": output_dir / "full_chunks_density" / "density_scores.json",
+            "skus": output_dir / "full_chunks_skus" / "skus_index.json",
+            "fusion": output_dir / "full_chunks_skus" / "buckets.json",
+            "skills": output_dir / "full_chunks_skus" / "generated_skills" / "generation_metadata.json",
+            "router": output_dir / "full_chunks_skus" / "router.json",
+            "glossary": output_dir / "full_chunks_skus" / "glossary.json",
+        }
+        marker = markers.get(stage, Path(""))
+    return marker.exists()
 
 
 def run_mineru(pdf_path: Path, output_dir: Path, language: str = "ch") -> Path:
@@ -158,18 +162,21 @@ def run_knowledge_fusion(skus_dir: Path) -> dict:
     return results
 
 
-def run_skill_generation(skus_dir: Path, output_dir: Path = None) -> Path:
-    """Stage 6: Generate Claude Code Skills from SKUs."""
+def run_skill_generation(skus_dir: Path, output_dir: Path = None, trae_format: bool = True) -> Path:
+    """Stage 6: Generate Trae IDE Skills from SKUs.
+    
+    Args:
+        skus_dir: Path to SKUs directory
+        output_dir: Optional output directory
+        trae_format: If True, output in Trae IDE format (.trae/skills/)
+    """
     from skill_generator import SkillGenerator
 
-    if output_dir is None:
-        output_dir = skus_dir / "generated_skills"
-
-    generator = SkillGenerator(str(skus_dir), str(output_dir))
+    generator = SkillGenerator(str(skus_dir), str(output_dir) if output_dir else None, trae_format=trae_format)
     generator.generate_all()
     generator.package_skills()
 
-    return output_dir
+    return generator.output_dir
 
 
 def run_router_generation(output_dir: Path) -> Path:
@@ -194,7 +201,8 @@ def run_pipeline(
     pdf_path: Path,
     output_dir: Path = None,
     language: str = "ch",
-    resume: bool = False
+    resume: bool = False,
+    trae_format: bool = True
 ):
     """
     Run the full pdf2skills pipeline.
@@ -204,10 +212,10 @@ def run_pipeline(
         output_dir: Output directory (default: <pdf_name>_output)
         language: PDF language for OCR ("ch" or "en")
         resume: Whether to resume from existing progress
+        trae_format: If True, generate Trae IDE compatible skills (.trae/skills/)
     """
     start_time = datetime.now()
 
-    # Setup paths
     pdf_path = Path(pdf_path).resolve()
     if output_dir is None:
         output_dir = pdf_path.parent / f"{pdf_path.stem}_output"
@@ -218,6 +226,7 @@ def run_pipeline(
     print(f"Output Dir:  {output_dir}")
     print(f"Language:    {language}")
     print(f"Resume Mode: {resume}")
+    print(f"Skill Format: {'Trae IDE' if trae_format else 'Claude Code'}")
     print(f"Started:     {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
     total_steps = 8
@@ -303,18 +312,17 @@ def run_pipeline(
         results["fusion"] = fusion_results
 
     # =========================================================================
-    # Stage 6: SKUs → Claude Skills (Skill Generator)
+    # Stage 6: SKUs → Trae Skills (Skill Generator)
     # =========================================================================
     print_step(6, total_steps, "Skill Generation")
 
-    skills_dir = skus_dir / "generated_skills"
-
-    if resume and check_stage_complete(output_dir, "skills"):
-        print("  [SKIP] Already completed - index.md exists")
+    if resume and check_stage_complete(output_dir, "skills", trae_format=trae_format):
+        print("  [SKIP] Already completed - skills exist")
         results["skills"] = "skipped"
     else:
-        run_skill_generation(skus_dir, skills_dir)
+        skills_output = run_skill_generation(skus_dir, trae_format=trae_format)
         results["skills"] = "complete"
+        results["skills_dir"] = str(skills_output)
 
     # =========================================================================
     # Stage 7: Skills → Router (Router Generator)
@@ -360,25 +368,47 @@ def run_pipeline(
             print(f"  {stage}: {status}")
 
     print(f"\nOutput structure:")
-    print(f"  {output_dir}/")
-    print(f"    ├── full.md                        (Markdown)")
-    print(f"    ├── full_chunks/                   (Chunked documents)")
-    print(f"    ├── full_chunks_density/           (Density analysis)")
-    print(f"    │   ├── density_scores.json")
-    print(f"    │   └── heatmap.html")
-    print(f"    └── full_chunks_skus/              (Knowledge units)")
-    print(f"        ├── skus/                      (Individual SKUs)")
-    print(f"        ├── buckets.json               (Grouped SKUs)")
-    print(f"        ├── router.json                (Hierarchical router)")
-    print(f"        ├── glossary.json              (Domain terminology)")
-    print(f"        └── generated_skills/          (Claude Skills)")
-    print(f"            ├── index.md               (Skill index)")
-    print(f"            └── <skill-name>/SKILL.md  (Individual skills)")
+    if trae_format:
+        print(f"  {output_dir}/")
+        print(f"    ├── full.md                        (Markdown)")
+        print(f"    ├── full_chunks/                   (Chunked documents)")
+        print(f"    ├── full_chunks_density/           (Density analysis)")
+        print(f"    │   ├── density_scores.json")
+        print(f"    │   └── heatmap.html")
+        print(f"    └── full_chunks_skus/              (Knowledge units)")
+        print(f"        ├── skus/                      (Individual SKUs)")
+        print(f"        ├── buckets.json               (Grouped SKUs)")
+        print(f"        ├── router.json                (Hierarchical router)")
+        print(f"        └── glossary.json              (Domain terminology)")
+        print(f"  ")
+        print(f"  .trae/skills/                        (Trae IDE Skills)")
+        print(f"      ├── <skill-name>/SKILL.md        (Individual skills)")
+        print(f"      └── generation_metadata.json     (Generation info)")
+    else:
+        print(f"  {output_dir}/")
+        print(f"    ├── full.md                        (Markdown)")
+        print(f"    ├── full_chunks/                   (Chunked documents)")
+        print(f"    ├── full_chunks_density/           (Density analysis)")
+        print(f"    │   ├── density_scores.json")
+        print(f"    │   └── heatmap.html")
+        print(f"    └── full_chunks_skus/              (Knowledge units)")
+        print(f"        ├── skus/                      (Individual SKUs)")
+        print(f"        ├── buckets.json               (Grouped SKUs)")
+        print(f"        ├── router.json                (Hierarchical router)")
+        print(f"        ├── glossary.json              (Domain terminology)")
+        print(f"        └── generated_skills/          (Claude Skills)")
+        print(f"            ├── index.md               (Skill index)")
+        print(f"            └── <skill-name>/SKILL.md  (Individual skills)")
 
+    skills_dir = results.get("skills_dir", str(skus_dir / "generated_skills"))
     print(f"\nGenerated outputs ready at:")
     print(f"  Skills:   {skills_dir}")
     print(f"  Router:   {skus_dir / 'router.json'}")
     print(f"  Glossary: {skus_dir / 'glossary.json'}")
+    
+    if trae_format:
+        print(f"\n✅ Skills are ready for Trae IDE!")
+        print(f"   Restart Trae IDE to load the new skills.")
 
     return output_dir
 
@@ -386,11 +416,11 @@ def run_pipeline(
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="pdf2skills - Convert PDF books to Claude Code Skills",
+        description="pdf2skills - Convert PDF books to Trae IDE Skills",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Process a new PDF
+  # Process a new PDF (default: Trae IDE format)
   python run_pipeline.py book.pdf
 
   # Process with custom output directory
@@ -404,6 +434,9 @@ Examples:
 
   # Resume using output directory only
   python run_pipeline.py --resume ./book_output
+  
+  # Generate Claude Code format instead of Trae IDE
+  python run_pipeline.py book.pdf --claude-format
 """
     )
 
@@ -425,6 +458,11 @@ Examples:
         "--resume",
         action="store_true",
         help="Resume from existing progress"
+    )
+    parser.add_argument(
+        "--claude-format",
+        action="store_true",
+        help="Generate Claude Code format skills instead of Trae IDE format"
     )
 
     args = parser.parse_args()
@@ -454,7 +492,8 @@ Examples:
             pdf_path=pdf_path,
             output_dir=output_dir,
             language=args.language,
-            resume=args.resume
+            resume=args.resume,
+            trae_format=not args.claude_format
         )
     except KeyboardInterrupt:
         print("\n\nPipeline interrupted by user.")
