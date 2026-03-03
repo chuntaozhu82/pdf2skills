@@ -1,6 +1,6 @@
 # pdf2skills
 
-Convert PDF books into Skills callable to Claude Code.
+Convert PDF books into Skills callable in **Trae IDE** (also supports Claude Code format).
 
 ## Quick Start
 
@@ -55,7 +55,7 @@ BUCKET_THRESHOLD=0.5
 ### 4. Run the Pipeline
 
 ```bash
-# Basic usage
+# Basic usage (generates Trae IDE skills by default)
 python run_pipeline.py your_book.pdf
 
 # With custom output directory
@@ -66,11 +66,14 @@ python run_pipeline.py your_book.pdf --language en
 
 # Resume interrupted processing
 python run_pipeline.py your_book.pdf --resume
+
+# Generate Claude Code format instead of Trae IDE
+python run_pipeline.py your_book.pdf --claude-format
 ```
 
 ### 5. Output Structure
 
-After processing, you'll find:
+After processing (Trae IDE format - default):
 
 ```
 your_book_output/
@@ -84,12 +87,21 @@ your_book_output/
 └── full_chunks_skus/                # Knowledge units
     ├── skus/                        # Individual SKU files
     ├── buckets.json                 # Grouped SKUs
-    └── generated_skills/            # Claude Code Skills
-        ├── index.md                 # Skill navigation
-        └── <skill-name>/
-            ├── SKILL.md             # Main skill file
-            └── references/          # Detailed documentation
+    ├── router.json                  # Hierarchical router
+    └── glossary.json                # Domain terminology
+
+.trae/skills/                        # Trae IDE Skills (ready to use!)
+├── <skill-name>/SKILL.md            # Individual skills
+└── generation_metadata.json         # Generation info
 ```
+
+### 6. Use in Trae IDE
+
+After the pipeline completes:
+
+1. **Restart Trae IDE** to load the new skills
+2. Skills will be automatically available in your project
+3. Each skill has a `description` field that tells Trae when to invoke it
 
 ## Pipeline Stages
 
@@ -100,7 +112,31 @@ your_book_output/
 | 3 | Semantic Density | NLP scoring + LLM calibration |
 | 4 | SKU Extractor | Knowledge unit extraction |
 | 5 | Knowledge Fusion | Tag normalization + deduplication |
-| 6 | Skill Generator | SKU → Claude Skill conversion |
+| 6 | Skill Generator | SKU → Trae Skill conversion |
+| 7 | Router Generator | Hierarchical skill router |
+| 8 | Glossary Extractor | Domain terminology extraction |
+
+## Skill Format
+
+### Trae IDE Format (Default)
+
+Each generated skill follows the Trae IDE format:
+
+```markdown
+---
+name: "skill-name"
+description: "Does X. Invoke when Y happens or user asks for Z."
+---
+
+# Skill Title
+
+<Detailed instructions, usage guidelines, and examples>
+```
+
+**Key Requirements:**
+- `description` must include **WHAT** the skill does AND **WHEN** to invoke it
+- Keep description under 200 characters for best display
+- SKILL.md should be under 500 lines
 
 ## Using Individual Modules
 
@@ -108,19 +144,22 @@ Each module can be run independently:
 
 ```bash
 # Chunking only
-python -m pdf2skills.onion_peeler path/to/full.md
+python -m onion_peeler path/to/full.md
 
 # Density analysis only
-python -m pdf2skills.semantic_density path/to/chunks_dir
+python -m semantic_density path/to/chunks_dir
 
 # SKU extraction only
-python -m pdf2skills.sku_extractor path/to/chunks_dir -d density_scores.json
+python -m sku_extractor path/to/chunks_dir -d density_scores.json
 
 # Knowledge fusion only
-python -m pdf2skills.knowledge_fusion path/to/skus_dir
+python -m knowledge_fusion path/to/skus_dir
 
-# Skill generation only
-python -m pdf2skills.skill_generator path/to/skus_dir -o output_dir
+# Skill generation only (Trae format)
+python -m skill_generator path/to/skus_dir
+
+# Skill generation only (Claude format)
+python -m skill_generator path/to/skus_dir --claude-format
 ```
 
 ## API Providers
@@ -159,10 +198,15 @@ Get your API key at: https://siliconflow.cn/
 python -m spacy download en_core_web_sm
 ```
 
+**Skills not appearing in Trae IDE**
+- Make sure skills are in `.trae/skills/` directory
+- Restart Trae IDE after generating new skills
+- Check that each skill has proper frontmatter with `name` and `description`
+
 ## License
 
 MIT License
 
 ## Version
 
-1.0 - Initial release
+2.0 - Added Trae IDE format support
